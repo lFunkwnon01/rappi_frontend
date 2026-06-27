@@ -1,0 +1,295 @@
+import type { User, Product, Order, WorkflowTask, OrderEvent } from "@/shared/types";
+
+export const DEMO_TENANT = "popeyes";
+export const DEMO_STORE = "store-001";
+
+export const DEMO_USERS: User[] = [
+  {
+    userId: "u-client-1",
+    email: "maria@cliente.pe",
+    name: "María López",
+    role: "CLIENT",
+    tenantId: DEMO_TENANT,
+    storeId: DEMO_STORE,
+  },
+  {
+    userId: "u-worker-1",
+    email: "carlos@popeyes.pe",
+    name: "Carlos Recepción",
+    role: "RESTAURANT_WORKER",
+    tenantId: DEMO_TENANT,
+    storeId: DEMO_STORE,
+  },
+  {
+    userId: "u-cook-1",
+    email: "juan@popeyes.pe",
+    name: "Juan Cocina",
+    role: "COOK",
+    tenantId: DEMO_TENANT,
+    storeId: DEMO_STORE,
+  },
+  {
+    userId: "u-dispatcher-1",
+    email: "ana@popeyes.pe",
+    name: "Ana Despacho",
+    role: "DISPATCHER",
+    tenantId: DEMO_TENANT,
+    storeId: DEMO_STORE,
+  },
+  {
+    userId: "u-driver-1",
+    email: "luis@popeyes.pe",
+    name: "Luis Reparto",
+    role: "DELIVERY_DRIVER",
+    tenantId: DEMO_TENANT,
+    storeId: DEMO_STORE,
+  },
+  {
+    userId: "u-admin-1",
+    email: "admin@popeyes.pe",
+    name: "Sofía Admin",
+    role: "ADMIN",
+    tenantId: DEMO_TENANT,
+    storeId: DEMO_STORE,
+  },
+];
+
+export const DEMO_PRODUCTS: Product[] = [
+  {
+    tenantId: DEMO_TENANT,
+    productId: "p-bucket-12",
+    name: "Bucket de 12 piezas",
+    description: "12 piezas de pollo crispy sazonado con la receta Louisiana",
+    price: 89.9,
+    category: "BUCKETS",
+    imageUrl:
+      "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=500&h=500&fit=crop",
+    active: true,
+  },
+  {
+    tenantId: DEMO_TENANT,
+    productId: "p-bucket-8",
+    name: "Bucket de 8 piezas",
+    description: "8 piezas de pollo crispy para compartir",
+    price: 64.9,
+    category: "BUCKETS",
+    imageUrl:
+      "https://images.unsplash.com/photo-1562967914-608f82629710?w=500&h=500&fit=crop",
+    active: true,
+  },
+  {
+    tenantId: DEMO_TENANT,
+    productId: "p-sandwich-classic",
+    name: "Classic Chicken Sandwich",
+    description: "Pollo crispy, pepinillo y salsa mayo en pan de papas",
+    price: 19.9,
+    category: "SANDWICHES",
+    imageUrl:
+      "https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=500&h=500&fit=crop",
+    active: true,
+  },
+  {
+    tenantId: DEMO_TENANT,
+    productId: "p-sandwich-spicy",
+    name: "Spicy Chicken Sandwich",
+    description: "Pollo crispy picante con pepinillo y salsa cajún",
+    price: 21.9,
+    category: "SANDWICHES",
+    imageUrl:
+      "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=500&h=500&fit=crop",
+    active: true,
+  },
+  {
+    tenantId: DEMO_TENANT,
+    productId: "p-tenders-6",
+    name: "Chicken Tenders (6 unid.)",
+    description: "Tiras de pollo empanizado, tiernas por dentro",
+    price: 29.9,
+    category: "POLLOS",
+    imageUrl:
+      "https://images.unsplash.com/photo-1562967914-608f82629710?w=500&h=500&fit=crop",
+    active: true,
+  },
+  {
+    tenantId: DEMO_TENANT,
+    productId: "p-fries-large",
+    name: "Papas Cajún (grande)",
+    description: "Papas fritas sazonadas con el estilo Louisiana",
+    price: 12.9,
+    category: "SIDES",
+    imageUrl:
+      "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=500&h=500&fit=crop",
+    active: true,
+  },
+  {
+    tenantId: DEMO_TENANT,
+    productId: "p-mash",
+    name: "Mashed Potatoes",
+    description: "Puré de papa cremoso con gravy",
+    price: 10.9,
+    category: "SIDES",
+    imageUrl:
+      "https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83?w=500&h=500&fit=crop",
+    active: true,
+  },
+  {
+    tenantId: DEMO_TENANT,
+    productId: "p-biscuit",
+    name: "Biscuit",
+    description: "Pan de buttermilk recién horneado",
+    price: 5.9,
+    category: "SIDES",
+    imageUrl:
+      "https://images.unsplash.com/photo-1568827999250-3f6afff96e66?w=500&h=500&fit=crop",
+    active: true,
+  },
+  {
+    tenantId: DEMO_TENANT,
+    productId: "p-cola-500",
+    name: "Coca-Cola 500ml",
+    description: "Gaseosa Coca-Cola bien fría",
+    price: 7.5,
+    category: "BEBIDAS",
+    imageUrl:
+      "https://images.unsplash.com/photo-1554866585-cd94860890b7?w=500&h=500&fit=crop",
+    active: true,
+  },
+  {
+    tenantId: DEMO_TENANT,
+    productId: "p-pie",
+    name: "Apple Pie",
+    description: "Pie de manzana crujiente con canela",
+    price: 8.9,
+    category: "POSTRES",
+    imageUrl:
+      "https://images.unsplash.com/photo-1568571780765-9276ac8b75a2?w=500&h=500&fit=crop",
+    active: true,
+  },
+  {
+    tenantId: DEMO_TENANT,
+    productId: "p-combo-familiar",
+    name: "Combo Familiar",
+    description: "8 piezas + 2 papas grandes + 4 bebidas",
+    price: 99.9,
+    category: "COMBOS",
+    imageUrl:
+      "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?w=500&h=500&fit=crop",
+    active: true,
+  },
+  {
+    tenantId: DEMO_TENANT,
+    productId: "p-combo-personal",
+    name: "Combo Personal",
+    description: "Sandwich + papa + bebida",
+    price: 27.9,
+    category: "COMBOS",
+    imageUrl:
+      "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=500&h=500&fit=crop",
+    active: true,
+  },
+];
+
+const now = () => new Date().toISOString();
+
+export const DEMO_ORDERS: Order[] = [
+  {
+    tenantId: DEMO_TENANT,
+    orderId: "ord-demo-1001",
+    storeId: DEMO_STORE,
+    customerId: "u-client-1",
+    customerName: "María López",
+    origin: "WEB",
+    items: [
+      { productId: "p-bucket-8", name: "Bucket de 8 piezas", price: 64.9, quantity: 1 },
+      { productId: "p-fries-large", name: "Papas Cajún (grande)", price: 12.9, quantity: 2 },
+      { productId: "p-cola-500", name: "Coca-Cola 500ml", price: 7.5, quantity: 2 },
+    ],
+    total: 105.7,
+    status: "COOKED",
+    createdAt: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 3).toISOString(),
+    deliveryAddress: "Av. Larco 345, Miraflores",
+    paymentMethod: "YAPE",
+  },
+  {
+    tenantId: DEMO_TENANT,
+    orderId: "ord-demo-1002",
+    storeId: DEMO_STORE,
+    customerId: "u-client-1",
+    customerName: "Pedro Ramos",
+    origin: "RAPPI",
+    externalOrderId: "RAPPI-8821",
+    items: [
+      { productId: "p-combo-personal", name: "Combo Personal", price: 27.9, quantity: 2 },
+    ],
+    total: 55.8,
+    status: "ORDER_CREATED",
+    createdAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
+    deliveryAddress: "Jr. Unión 540, Cercado de Lima",
+    paymentMethod: "TARJETA",
+  },
+];
+
+export const DEMO_TASKS: WorkflowTask[] = [
+  {
+    tenantId: DEMO_TENANT,
+    taskId: "task-1001-cook",
+    orderId: "ord-demo-1001",
+    storeId: DEMO_STORE,
+    stepName: "PACK_ORDER",
+    requiredRole: "DISPATCHER",
+    status: "PENDING",
+  },
+  {
+    tenantId: DEMO_TENANT,
+    taskId: "task-1002-receive",
+    orderId: "ord-demo-1002",
+    storeId: DEMO_STORE,
+    stepName: "RECEIVE_ORDER",
+    requiredRole: "RESTAURANT_WORKER",
+    status: "PENDING",
+  },
+];
+
+export const DEMO_EVENTS: OrderEvent[] = [
+  {
+    tenantId: DEMO_TENANT,
+    eventId: "evt-1",
+    orderId: "ord-demo-1001",
+    storeId: DEMO_STORE,
+    eventType: "ORDER_CREATED",
+    status: "ORDER_CREATED",
+    createdAt: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
+  },
+  {
+    tenantId: DEMO_TENANT,
+    eventId: "evt-2",
+    orderId: "ord-demo-1001",
+    storeId: DEMO_STORE,
+    eventType: "ORDER_RECEIVED",
+    status: "ORDER_RECEIVED",
+    createdAt: new Date(Date.now() - 1000 * 60 * 9).toISOString(),
+    metadata: { completedBy: "Carlos Recepción" },
+  },
+  {
+    tenantId: DEMO_TENANT,
+    eventId: "evt-3",
+    orderId: "ord-demo-1001",
+    storeId: DEMO_STORE,
+    eventType: "COOKED",
+    status: "COOKED",
+    createdAt: new Date(Date.now() - 1000 * 60 * 3).toISOString(),
+    metadata: { completedBy: "Juan Cocina" },
+  },
+  {
+    tenantId: DEMO_TENANT,
+    eventId: "evt-4",
+    orderId: "ord-demo-1002",
+    storeId: DEMO_STORE,
+    eventType: "ORDER_CREATED",
+    status: "ORDER_CREATED",
+    createdAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
+    metadata: { origin: "RAPPI" },
+  },
+];
