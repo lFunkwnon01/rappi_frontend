@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppStore } from "@/shared/stores/appStore";
 import { STATUS_COLOR, STATUS_LABEL, WORKFLOW_SEQUENCE, STEP_LABEL } from "@/shared/types";
@@ -6,13 +6,18 @@ import { formatPEN, timeAgo } from "@/shared/utils/format";
 import { Eye, ChevronRight, Filter } from "lucide-react";
 
 export function AllOrdersPage() {
-  const orders = useAppStore((s) =>
-    [...s.orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-  );
+  const allOrders = useAppStore((s) => s.orders);
   const tasks = useAppStore((s) => s.tasks);
   const [filter, setFilter] = useState<string>("ALL");
 
-  const filtered = filter === "ALL" ? orders : orders.filter((o) => o.status === filter);
+  const orders = useMemo(
+    () => [...allOrders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [allOrders],
+  );
+  const filtered = useMemo(
+    () => (filter === "ALL" ? orders : orders.filter((o) => o.status === filter)),
+    [orders, filter],
+  );
 
   const stepFor = (status: string) =>
     WORKFLOW_SEQUENCE.find((s) => STEP_LABEL[s] === STATUS_LABEL[status as keyof typeof STATUS_LABEL]) ??

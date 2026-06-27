@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Package, Clock } from "lucide-react";
 import { useAppStore } from "@/shared/stores/appStore";
@@ -6,14 +7,18 @@ import { formatPEN, timeAgo } from "@/shared/utils/format";
 
 export function MyOrdersPage() {
   const currentUser = useAppStore((s) => s.currentUser);
-  const orders = useAppStore((s) =>
-    [...s.orders]
-      .filter((o) =>
-        currentUser?.role === "CLIENT"
-          ? o.customerId === currentUser.userId
-          : true,
-      )
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+  const allOrders = useAppStore((s) => s.orders);
+
+  const orders = useMemo(
+    () =>
+      [...allOrders]
+        .filter((o) =>
+          currentUser?.role === "CLIENT"
+            ? o.customerId === currentUser.userId
+            : true,
+        )
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [allOrders, currentUser?.userId, currentUser?.role],
   );
 
   return (
