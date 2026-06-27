@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { create } from "zustand";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import type {
@@ -340,9 +341,12 @@ export const useOrderStatus = (orderId: string): OrderStatus | null => {
 };
 
 export const useOrderEvents = (orderId: string): OrderEvent[] => {
-  return useAppStore((s) =>
-    s.events.filter((e) => e.orderId === orderId).sort((a, b) =>
-      a.createdAt.localeCompare(b.createdAt),
-    ),
+  const allEvents = useAppStore((s) => s.events);
+  return useMemo(
+    () =>
+      allEvents
+        .filter((e) => e.orderId === orderId)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    [allEvents, orderId],
   );
 };
