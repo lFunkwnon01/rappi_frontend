@@ -1,14 +1,25 @@
-import { Link, NavLink, useNavigate } from "react-router-dom";
-import { LogOut, ShoppingBag, User as UserIcon } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { LogOut, ShoppingBag, User as UserIcon, LogIn } from "lucide-react";
 import { useAppStore } from "@/shared/stores/appStore";
+import { tokenStore } from "@/shared/api/client";
 import { ROLE_LABEL } from "@/shared/types";
 
 export function ClientNavBar() {
   const navigate = useNavigate();
   const currentUser = useAppStore((s) => s.currentUser);
   const cart = useAppStore((s) => s.cart);
-  const logout = useAppStore((s) => s.logout);
+  const setCurrentUser = useAppStore((s) => s.setCurrentUser);
+  const setCurrentStoreId = useAppStore((s) => s.setCurrentStoreId);
+
   const cartCount = cart.reduce((acc, i) => acc + i.quantity, 0);
+
+  const logout = () => {
+    tokenStore.clear();
+    tokenStore.clearUser();
+    setCurrentUser(null);
+    setCurrentStoreId(null);
+    navigate("/");
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-black/5 bg-white/95 backdrop-blur">
@@ -18,9 +29,7 @@ export function ClientNavBar() {
             P
           </div>
           <div className="leading-tight">
-            <div className="font-display text-2xl tracking-wide text-popeyes-red">
-              POPEYES
-            </div>
+            <div className="font-display text-2xl tracking-wide text-popeyes-red">POPEYES</div>
             <div className="text-[10px] font-semibold uppercase tracking-widest text-popeyes-gray">
               LOUISIANA KITCHEN
             </div>
@@ -28,31 +37,9 @@ export function ClientNavBar() {
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm font-semibold md:flex">
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              isActive ? "text-popeyes-red" : "hover:text-popeyes-red"
-            }
-          >
-            Inicio
-          </NavLink>
-          <NavLink
-            to="/menu"
-            className={({ isActive }) =>
-              isActive ? "text-popeyes-red" : "hover:text-popeyes-red"
-            }
-          >
-            Carta
-          </NavLink>
-          <NavLink
-            to="/orders"
-            className={({ isActive }) =>
-              isActive ? "text-popeyes-red" : "hover:text-popeyes-red"
-            }
-          >
-            Mis pedidos
-          </NavLink>
+          <Link to="/" className="text-popeyes-gray hover:text-popeyes-red">
+            Sedes
+          </Link>
         </nav>
 
         <div className="flex items-center gap-2">
@@ -60,13 +47,11 @@ export function ClientNavBar() {
             <>
               <span className="hidden text-xs font-medium text-popeyes-gray sm:inline">
                 Hola, <strong>{currentUser.name.split(" ")[0]}</strong>
+                {currentUser.role !== "CLIENT" && ` · ${ROLE_LABEL[currentUser.role]}`}
               </span>
               <button
                 type="button"
-                onClick={() => {
-                  logout();
-                  navigate("/");
-                }}
+                onClick={logout}
                 className="btn-ghost"
                 title="Cerrar sesión"
               >
@@ -75,7 +60,7 @@ export function ClientNavBar() {
             </>
           ) : (
             <Link to="/login" className="btn-ghost">
-              <UserIcon className="h-4 w-4" /> Ingresar
+              <LogIn className="h-4 w-4" /> Ingresar
             </Link>
           )}
           <Link
@@ -92,19 +77,5 @@ export function ClientNavBar() {
         </div>
       </div>
     </header>
-  );
-}
-
-export function ClientFooter() {
-  return (
-    <footer className="mt-16 bg-popeyes-dark py-8 text-white/70">
-      <div className="mx-auto max-w-7xl px-4 text-center text-sm">
-        <div className="font-display text-xl text-popeyes-gold">POPEYES</div>
-        <p className="mt-1">© {new Date().getFullYear()} · Sistema de Gestión de Pedidos — Demo Cloud Computing</p>
-        <p className="mt-1 text-xs">
-          {ROLE_LABEL.CLIENT} · {ROLE_LABEL.RESTAURANT_WORKER} · {ROLE_LABEL.COOK} · {ROLE_LABEL.DISPATCHER} · {ROLE_LABEL.DELIVERY_DRIVER} · {ROLE_LABEL.ADMIN}
-        </p>
-      </div>
-    </footer>
   );
 }

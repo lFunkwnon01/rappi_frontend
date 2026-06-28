@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAppStore } from "@/shared/stores/appStore";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
-import { ClientNavBar, ClientFooter } from "@/modules/client/components/ClientNavBar";
+import { ClientNavBar } from "@/modules/client/components/ClientNavBar";
 import { StoresLandingPage } from "@/modules/client/pages/HomePage";
 import { MenuPage } from "@/modules/client/pages/MenuPage";
 import { CartPage } from "@/modules/client/pages/CartPage";
@@ -30,7 +30,6 @@ function ClientLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-popeyes-cream">
       <ClientNavBar />
       <main className="min-h-[60vh]">{children}</main>
-      <ClientFooter />
     </div>
   );
 }

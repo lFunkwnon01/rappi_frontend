@@ -1,29 +1,60 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useAppStore } from "@/shared/stores/appStore";
+import { Loader2, Eye, ChevronRight, Filter } from "lucide-react";
+import { orders as ordersApi, tokenStore, ApiError, type Order, type OrderStatus } from "@/shared/api/client";
 import { STATUS_COLOR, STATUS_LABEL, WORKFLOW_SEQUENCE, STEP_LABEL } from "@/shared/types";
 import { formatPEN, timeAgo } from "@/shared/utils/format";
-import { Eye, ChevronRight, Filter } from "lucide-react";
+
+const ALL_STATUSES: OrderStatus[] = [
+  "PAYMENT_PENDING",
+  "PAYMENT_CONFIRMED",
+  "PAYMENT_FAILED",
+  "ORDER_CREATED",
+  "ORDER_RECEIVED",
+  "COOKED",
+  "PACKED",
+  "DELIVERED",
+  "COMPLETED",
+  "CANCELLED",
+];
 
 export function AllOrdersPage() {
-  const allOrders = useAppStore((s) => s.orders);
-  const tasks = useAppStore((s) => s.tasks);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("ALL");
 
-  const orders = useMemo(
-    () => [...allOrders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    [allOrders],
-  );
-  const filtered = useMemo(
-    () => (filter === "ALL" ? orders : orders.filter((o) => o.status === filter)),
-    [orders, filter],
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const list = await ordersApi.list(tokenStore.get());
+        if (cancelled) return;
+        setOrders(list);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof ApiError ? err.message : "Error al cargar");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const sorted = useMemo(
+    () => [...orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [orders],
   );
 
-  const stepFor = (status: string) =>
-    WORKFLOW_SEQUENCE.find((s) => STEP_LABEL[s] === STATUS_LABEL[status as keyof typeof STATUS_LABEL]) ??
-    null;
-  const pendingFor = (orderId: string) =>
-    tasks.find((t) => t.orderId === orderId && t.status === "PENDING");
+  const filtered = useMemo(
+    () => (filter === "ALL" ? sorted : sorted.filter((o) => o.status === filter)),
+    [sorted, filter],
+  );
 
   return (
     <div>
@@ -31,7 +62,7 @@ export function AllOrdersPage() {
         <div>
           <h1 className="font-display text-3xl">Todos los pedidos</h1>
           <p className="text-sm text-popeyes-gray">
-            Vista global de los pedidos en el sistema.
+            Vista global de los pedidos de tu tienda.
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -42,89 +73,95 @@ export function AllOrdersPage() {
             className="input w-auto"
           >
             <option value="ALL">Todos los estados</option>
-            {Object.entries(STATUS_LABEL).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
+            {ALL_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABEL[s]}
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      <div className="card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-popeyes-cream/50 text-left text-xs uppercase tracking-widest text-popeyes-gray">
-            <tr>
-              <th className="px-4 py-3">Pedido</th>
-              <th className="px-4 py-3">Cliente</th>
-              <th className="px-4 py-3">Origen</th>
-              <th className="px-4 py-3">Items</th>
-              <th className="px-4 py-3">Total</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3">Etapa actual</th>
-              <th className="px-4 py-3">Hace</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-black/5">
-            {filtered.map((o) => {
-              const pending = pendingFor(o.orderId);
-              return (
-                <tr key={o.orderId} className="hover:bg-popeyes-cream/30">
-                  <td className="px-4 py-3 font-semibold">
-                    #{o.orderId.slice(-6).toUpperCase()}
-                  </td>
-                  <td className="px-4 py-3">{o.customerName}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`chip border ${
-                        o.origin === "RAPPI"
-                          ? "border-orange-300 bg-orange-50 text-orange-700"
-                          : "border-blue-300 bg-blue-50 text-blue-700"
-                      }`}
-                    >
-                      {o.origin}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">{o.items.length}</td>
-                  <td className="px-4 py-3 font-bold text-popeyes-red">
-                    {formatPEN(o.total)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`chip ${STATUS_COLOR[o.status]} border`}>
-                      {STATUS_LABEL[o.status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-popeyes-gray">
-                    {pending ? STEP_LABEL[pending.stepName] : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-popeyes-gray">
-                    {timeAgo(o.createdAt)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      to={`/orders/${o.orderId}`}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-popeyes-red hover:underline"
-                    >
-                      <Eye className="h-3 w-3" /> Ver <ChevronRight className="h-3 w-3" />
-                    </Link>
+      {error ? (
+        <div className="card p-6 text-center text-red-600">{error}</div>
+      ) : loading ? (
+        <div className="flex items-center justify-center gap-2 p-12 text-popeyes-gray">
+          <Loader2 className="h-5 w-5 animate-spin" /> Cargando…
+        </div>
+      ) : (
+        <div className="card overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-popeyes-cream/50 text-left text-xs uppercase tracking-widest text-popeyes-gray">
+              <tr>
+                <th className="px-4 py-3">Pedido</th>
+                <th className="px-4 py-3">Cliente</th>
+                <th className="px-4 py-3">Origen</th>
+                <th className="px-4 py-3">Items</th>
+                <th className="px-4 py-3">Total</th>
+                <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3">Hace</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-black/5">
+              {filtered.map((o) => {
+                const stepEntry = WORKFLOW_SEQUENCE.find(
+                  (s) => STEP_LABEL[s] === STATUS_LABEL[o.status],
+                );
+                return (
+                  <tr key={o.orderId} className="hover:bg-popeyes-cream/30">
+                    <td className="px-4 py-3 font-semibold">
+                      #{o.orderId.slice(-6).toUpperCase()}
+                    </td>
+                    <td className="px-4 py-3">{o.customerName}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`chip border ${
+                          o.origin === "RAPPI"
+                            ? "border-orange-300 bg-orange-50 text-orange-700"
+                            : "border-blue-300 bg-blue-50 text-blue-700"
+                        }`}
+                      >
+                        {o.origin}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">{o.items.length}</td>
+                    <td className="px-4 py-3 font-bold text-popeyes-red">
+                      {formatPEN(o.total)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`chip ${STATUS_COLOR[o.status]} border`}>
+                        {STATUS_LABEL[o.status]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-popeyes-gray">
+                      {timeAgo(o.createdAt)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Link
+                        to={`/orders/${o.orderId}`}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-popeyes-red hover:underline"
+                      >
+                        <Eye className="h-3 w-3" /> Ver <ChevronRight className="h-3 w-3" />
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filtered.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="px-4 py-8 text-center text-sm text-popeyes-gray"
+                  >
+                    No hay pedidos que coincidan con el filtro.
                   </td>
                 </tr>
-              );
-            })}
-            {filtered.length === 0 && (
-              <tr>
-                <td
-                  colSpan={9}
-                  className="px-4 py-8 text-center text-sm text-popeyes-gray"
-                >
-                  No hay pedidos que coincidan con el filtro.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

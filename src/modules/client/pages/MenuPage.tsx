@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Plus, Minus, MapPin } from "lucide-react";
+import { Plus, Minus, MapPin, Loader2 } from "lucide-react";
 import { useAppStore } from "@/shared/stores/appStore";
-import type { ProductCategory } from "@/shared/types";
+import { products as productsApi, tokenStore, ApiError, type Product, type ProductCategory } from "@/shared/api/client";
 import { formatPEN } from "@/shared/utils/format";
 
 const CATEGORIES: { key: ProductCategory | "ALL"; label: string }[] = [
@@ -24,30 +24,52 @@ const STORE_NAMES: Record<string, string> = {
 
 export function MenuPage() {
   const { storeId = "" } = useParams();
-  const products = useAppStore((s) => s.products);
-  const addToCart = useAppStore((s) => s.addToCart);
   const cart = useAppStore((s) => s.cart);
+  const addToCart = useAppStore((s) => s.addToCart);
   const updateCartItem = useAppStore((s) => s.updateCartItem);
   const setCurrentStoreId = useAppStore((s) => s.setCurrentStoreId);
+
+  const [storeName, setStoreName] = useState<string>(STORE_NAMES[storeId] || "");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<ProductCategory | "ALL">("ALL");
 
-  // Cuando se carga esta página, fijar la tienda actual en el store
+  // Persistir tienda en store
   useEffect(() => {
-    if (storeId) setCurrentStoreId(storeId);
+    if (storeId) {
+      setCurrentStoreId(storeId);
+      setStoreName(STORE_NAMES[storeId] || `Sede ${storeId}`);
+    }
   }, [storeId, setCurrentStoreId]);
 
-  // Productos de ESTA tienda
-  const storeProducts = useMemo(
-    () => products.filter((p) => p.storeId === storeId && p.active),
-    [products, storeId],
-  );
+  // Cargar productos del backend
+  useEffect(() => {
+    if (!storeId) return;
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const list = await productsApi.list(storeId, tokenStore.get());
+        if (cancelled) return;
+        setProducts(list);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof ApiError ? err.message : "Error al cargar productos");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId]);
 
   const filtered = useMemo(
-    () =>
-      storeProducts.filter(
-        (p) => filter === "ALL" || p.category === filter,
-      ),
-    [storeProducts, filter],
+    () => (filter === "ALL" ? products : products.filter((p) => p.category === filter)),
+    [products, filter],
   );
 
   const cartQty = (productId: string) =>
@@ -59,11 +81,13 @@ export function MenuPage() {
         <div>
           <div className="mb-1 flex items-center gap-2 text-sm text-popeyes-gray">
             <MapPin className="h-4 w-4" />
-            <span>{STORE_NAMES[storeId] || storeId}</span>
+            <span>{storeName || storeId}</span>
           </div>
           <h1 className="font-display text-4xl md:text-5xl">Nuestra carta</h1>
           <p className="text-sm text-popeyes-gray">
-            {filtered.length} producto{filtered.length !== 1 ? "s" : ""} disponible{filtered.length !== 1 ? "s" : ""} en esta sede.
+            {loading
+              ? "Cargando productos…"
+              : `${filtered.length} producto${filtered.length !== 1 ? "s" : ""} disponible${filtered.length !== 1 ? "s" : ""} en esta sede.`}
           </p>
         </div>
         <Link to="/" className="btn-secondary text-sm">
@@ -88,79 +112,93 @@ export function MenuPage() {
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {error ? (
+        <div className="card p-8 text-center text-red-600">{error}</div>
+      ) : loading ? (
+        <div className="flex items-center justify-center gap-2 p-12 text-popeyes-gray">
+          <Loader2 className="h-5 w-5 animate-spin" /> Cargando carta…
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="card p-8 text-center">
           <p className="text-popeyes-gray">
-            Esta sede aún no tiene productos en el demo. Intenta con otra sede.
+            Esta sede aún no tiene productos. Ejecuta <code className="rounded bg-popeyes-cream px-1.5">/admin/seed</code> en el backend o pide al admin de la tienda que agregue.
           </p>
           <Link to="/" className="btn-primary mt-4">
             Ver otras sedes
           </Link>
         </div>
       ) : (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((p) => {
-          const qty = cartQty(p.productId);
-          return (
-            <article key={p.productId} className="card overflow-hidden">
-              <div className="aspect-video w-full overflow-hidden bg-popeyes-cream">
-                <img
-                  src={p.imageUrl}
-                  alt={p.name}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src =
-                      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='400' height='300' fill='%23FFE0B2'/><text x='50%25' y='50%25' font-size='40' text-anchor='middle' fill='%23E4002B' font-family='Arial Black' dy='.3em'>POPEYES</text></svg>";
-                  }}
-                />
-              </div>
-              <div className="p-4">
-                <h3 className="font-display text-xl">{p.name}</h3>
-                <p className="line-clamp-2 text-sm text-popeyes-gray">
-                  {p.description}
-                </p>
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="text-lg font-bold text-popeyes-red">
-                    {formatPEN(p.price)}
-                  </span>
-                  {qty === 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => addToCart(p.productId)}
-                      className="btn-primary px-4 py-2 text-sm"
-                    >
-                      <Plus className="h-4 w-4" /> Agregar
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2 rounded-full bg-popeyes-dark px-1 py-1 text-white">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((p) => {
+            const qty = cartQty(p.productId);
+            return (
+              <article key={p.productId} className="card overflow-hidden">
+                <div className="aspect-video w-full overflow-hidden bg-popeyes-cream">
+                  <img
+                    src={p.imageUrl}
+                    alt={p.name}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src =
+                        "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='400' height='300' fill='%23FFE0B2'/><text x='50%25' y='50%25' font-size='40' text-anchor='middle' fill='%23E4002B' font-family='Arial Black' dy='.3em'>POPEYES</text></svg>";
+                    }}
+                  />
+                </div>
+                <div className="p-4">
+                  <h3 className="font-display text-xl">{p.name}</h3>
+                  <p className="line-clamp-2 text-sm text-popeyes-gray">{p.description}</p>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-lg font-bold text-popeyes-red">
+                      {formatPEN(p.price)}
+                    </span>
+                    {qty === 0 ? (
                       <button
                         type="button"
                         onClick={() =>
-                          updateCartItem(p.productId, qty - 1)
+                          addToCart({
+                            productId: p.productId,
+                            name: p.name,
+                            price: p.price,
+                            quantity: 1,
+                          })
                         }
-                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 hover:bg-white/20"
+                        className="btn-primary px-4 py-2 text-sm"
                       >
-                        <Minus className="h-3 w-3" />
+                        <Plus className="h-4 w-4" /> Agregar
                       </button>
-                      <span className="w-6 text-center text-sm font-bold">
-                        {qty}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => addToCart(p.productId)}
-                        className="flex h-7 w-7 items-center justify-center rounded-full bg-popeyes-gold text-popeyes-dark hover:bg-yellow-400"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="flex items-center gap-2 rounded-full bg-popeyes-dark px-1 py-1 text-white">
+                        <button
+                          type="button"
+                          onClick={() => updateCartItem(p.productId, qty - 1)}
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 hover:bg-white/20"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="w-6 text-center text-sm font-bold">{qty}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            addToCart({
+                              productId: p.productId,
+                              name: p.name,
+                              price: p.price,
+                              quantity: 1,
+                            })
+                          }
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-popeyes-gold text-popeyes-dark hover:bg-yellow-400"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-             </article>
-           );
-         })}
-       </div>
+              </article>
+            );
+          })}
+        </div>
       )}
     </div>
   );

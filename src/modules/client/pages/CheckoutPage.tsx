@@ -12,9 +12,10 @@ import {
   Lock,
 } from "lucide-react";
 import { useAppStore } from "@/shared/stores/appStore";
+import { orders as ordersApi, tokenStore, ApiError, type PaymentMethod } from "@/shared/api/client";
 import { formatPEN } from "@/shared/utils/format";
 
-type PaymentMethod = "YAPE" | "PLIN" | "TARJETA" | "EFECTIVO";
+type PaymentStatus = "IDLE" | "PROCESSING" | "SUCCESS" | "FAILED";
 
 const PAYMENTS: { key: PaymentMethod; label: string; hint: string; icon: typeof Smartphone }[] = [
   { key: "YAPE", label: "Yape", hint: "Aprueba desde tu app con código de 6 dígitos", icon: Smartphone },
@@ -22,8 +23,6 @@ const PAYMENTS: { key: PaymentMethod; label: string; hint: string; icon: typeof 
   { key: "TARJETA", label: "Tarjeta de crédito/débito", hint: "Visa, Mastercard, AMEX", icon: CreditCard },
   { key: "EFECTIVO", label: "Efectivo", hint: "Pagas al recibir tu pedido (delivery)", icon: Banknote },
 ];
-
-type PaymentStatus = "IDLE" | "PROCESSING" | "SUCCESS" | "FAILED";
 
 const STORE_NAMES: Record<string, string> = {
   "store-001": "Popeyes Miraflores",
@@ -69,7 +68,7 @@ export function CheckoutPage() {
   const { storeId = "" } = useParams();
   const cart = useAppStore((s) => s.cart);
   const currentUser = useAppStore((s) => s.currentUser);
-  const placeOrder = useAppStore((s) => s.placeOrder);
+  const clearCart = useAppStore((s) => s.clearCart);
 
   const [address, setAddress] = useState(
     currentUser?.role === "CLIENT" ? "Av. Larco 345, Miraflores" : "",
@@ -96,40 +95,62 @@ export function CheckoutPage() {
   const customerName =
     currentUser?.name ?? "Invitado " + customerId.slice(-4);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!address.trim()) return;
+    const token = tokenStore.get();
+    if (!token) {
+      setPaymentError("Tu sesión expiró. Vuelve a iniciar sesión.");
+      return;
+    }
 
     setSubmitting(true);
     setPaymentStatus("PROCESSING");
     setPaymentError(null);
 
-    // Simular latencia del procesador de pagos
-    setTimeout(() => {
-      const details =
-        payment === "TARJETA" ? card : payment === "EFECTIVO" ? {} : yapePlin;
-      const result = mockPaymentProcessor(payment, details);
+    // 1) Validar el pago (mock local - el backend aún no tiene endpoint /pay)
+    const details =
+      payment === "TARJETA" ? card : payment === "EFECTIVO" ? {} : yapePlin;
+    const payResult = mockPaymentProcessor(payment, details);
 
-      if (!result.success) {
-        setPaymentStatus("FAILED");
-        setPaymentError(result.error || "Pago rechazado");
-        setSubmitting(false);
-        return;
-      }
+    if (!payResult.success) {
+      setPaymentStatus("FAILED");
+      setPaymentError(payResult.error || "Pago rechazado");
+      setSubmitting(false);
+      return;
+    }
 
-      // Pago OK → crear el pedido
+    // 2) Pago OK → crear el pedido en el backend real
+    try {
       setPaymentStatus("SUCCESS");
-      const order = placeOrder({
-        customerId,
-        customerName,
-        deliveryAddress: address,
-        paymentMethod: payment,
-        origin: "WEB_POPEYES",
-        storeId,
-        paymentStatus: payment === "EFECTIVO" ? "PAYMENT_PENDING" : "PAYMENT_CONFIRMED",
-      });
+      const order = await ordersApi.create(
+        {
+          storeId,
+          deliveryAddress: address,
+          paymentMethod: payment,
+          customerName,
+          items: cart.map((i) => ({
+            productId: i.productId,
+            name: i.name,
+            price: i.price,
+            quantity: i.quantity,
+          })),
+        },
+        token,
+      );
+      // Limpiar carrito
+      useAppStore.getState().clearCart();
       setTimeout(() => navigate(`/orders/${order.orderId}`), 500);
-    }, 1200);
+    } catch (err) {
+      setPaymentStatus("FAILED");
+      setPaymentError(
+        err instanceof ApiError
+          ? `Pago OK pero el backend rechazó el pedido: ${err.message}`
+          : "Pago OK pero no se pudo crear el pedido. Intenta de nuevo.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const reset = () => {

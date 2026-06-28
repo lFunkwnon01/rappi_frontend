@@ -1,27 +1,42 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ChefHat, LogIn } from "lucide-react";
+import { ChefHat, LogIn, Loader2 } from "lucide-react";
+import { auth as authApi, ApiError, tokenStore } from "@/shared/api/client";
 import { useAppStore } from "@/shared/stores/appStore";
-import { ROLE_LABEL } from "@/shared/types";
 import { roleHomePath } from "@/shared/utils/format";
 
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const users = useAppStore((s) => s.users);
-  const login = useAppStore((s) => s.login);
-  const [selectedId, setSelectedId] = useState(users[0]?.userId ?? "");
+  const setCurrentUser = useAppStore((s) => s.setCurrentUser);
+  const [email, setEmail] = useState("cliente@popeyes.pe");
+  const [password, setPassword] = useState("password123");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = login(selectedId);
-    if (!user) {
-      setError("Usuario no encontrado");
-      return;
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await authApi.login(email.trim().toLowerCase(), password);
+      tokenStore.set(result.token);
+      tokenStore.setUser(result.user);
+      setCurrentUser(result.user);
+      const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname;
+      navigate(
+        from && from !== "/login" ? from : roleHomePath(result.user.role),
+        { replace: true },
+      );
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : "Error de red");
+      }
+    } finally {
+      setLoading(false);
     }
-    const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname;
-    navigate(from && from !== "/login" ? from : roleHomePath(user.role), { replace: true });
   };
 
   return (
@@ -47,16 +62,15 @@ export function LoginPage() {
               Cliente hace pedido → Recepcionista recibe → Cocinero cocina → Despachador empaca → Repartidor entrega → Cliente confirma.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {Object.entries(ROLE_LABEL).map(([k, v]) => (
-              <div
-                key={k}
-                className="rounded-lg border border-white/10 bg-white/5 px-3 py-2"
-              >
-                <div className="text-popeyes-gold">●</div>
-                <div className="font-semibold">{v}</div>
-              </div>
-            ))}
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
+            <p className="mb-2 font-semibold text-popeyes-gold">Usuarios demo (password: <code>password123</code>)</p>
+            <ul className="space-y-1">
+              <li>• <strong>cliente@popeyes.pe</strong> — Cliente global (puede pedir en cualquier sede)</li>
+              <li>• <strong>admin.miraflores@popeyes.pe</strong> — Admin de Miraflores</li>
+              <li>• <strong>admin.surco@popeyes.pe</strong> — Admin de Surco</li>
+              <li>• <strong>cook.miraflores@popeyes.pe</strong> — Cocinero de Miraflores</li>
+              <li>• <strong>dispatcher.surco@popeyes.pe</strong> — Despachador de Surco</li>
+            </ul>
           </div>
         </div>
 
@@ -71,41 +85,34 @@ export function LoginPage() {
             <div>
               <h2 className="font-display text-3xl">Ingresar al sistema</h2>
               <p className="text-sm text-popeyes-gray">
-                Selecciona un usuario demo según el rol que quieras probar.
+                Autenticación real contra el backend (JWT).
               </p>
             </div>
           </div>
 
-          <div className="space-y-2">
-            {users.map((u) => (
-              <label
-                key={u.userId}
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition ${
-                  selectedId === u.userId
-                    ? "border-popeyes-red bg-red-50"
-                    : "border-black/5 hover:border-black/20"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="user"
-                  value={u.userId}
-                  checked={selectedId === u.userId}
-                  onChange={() => setSelectedId(u.userId)}
-                  className="sr-only"
-                />
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-popeyes-orange/15 font-bold text-popeyes-orange">
-                  {u.name.charAt(0)}
-                </div>
-                <div className="flex-1">
-                  <div className="font-semibold">{u.name}</div>
-                  <div className="text-xs text-popeyes-gray">{u.email}</div>
-                </div>
-                <span className="chip border-popeyes-red/30 bg-popeyes-red/10 text-popeyes-red">
-                  {ROLE_LABEL[u.role]}
-                </span>
-              </label>
-            ))}
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-semibold text-popeyes-gray">Email</label>
+              <input
+                type="email"
+                className="input mt-1"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-popeyes-gray">Contraseña</label>
+              <input
+                type="password"
+                className="input mt-1"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </div>
           </div>
 
           {error && (
@@ -114,12 +121,50 @@ export function LoginPage() {
             </div>
           )}
 
-          <button type="submit" className="btn-primary mt-6 w-full">
-            <LogIn className="h-4 w-4" /> Entrar
+          <button
+            type="submit"
+            className="btn-primary mt-6 w-full"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Conectando…
+              </>
+            ) : (
+              <>
+                <LogIn className="h-4 w-4" /> Entrar
+              </>
+            )}
           </button>
 
           <p className="mt-3 text-center text-xs text-popeyes-gray">
-            Demo: no requiere contraseña. La autenticación real (JWT) la maneja el backend (ver PDF).
+            ¿No tienes cuenta?{" "}
+            <button
+              type="button"
+              onClick={async () => {
+                const email = prompt("Email:");
+                if (!email) return;
+                const name = prompt("Nombre:") || email.split("@")[0];
+                const password = prompt("Contraseña (mín 6 chars):") || "demo1234";
+                try {
+                  const result = await authApi.register({
+                    email,
+                    password,
+                    name,
+                    role: "CLIENT",
+                  });
+                  tokenStore.set(result.token);
+                  tokenStore.setUser(result.user);
+                  setCurrentUser(result.user);
+                  navigate("/", { replace: true });
+                } catch (err) {
+                  alert(err instanceof Error ? err.message : "Error");
+                }
+              }}
+              className="text-popeyes-red hover:underline"
+            >
+              Regístrate
+            </button>
           </p>
         </form>
       </div>

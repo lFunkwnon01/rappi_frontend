@@ -1,51 +1,58 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MapPin, ArrowRight, LogIn, Store, LogOut, RefreshCw } from "lucide-react";
+import { MapPin, ArrowRight, LogIn, Store as StoreIcon, LogOut, RefreshCw, Loader2 } from "lucide-react";
 import { useAppStore } from "@/shared/stores/appStore";
+import { stores as storesApi, orders as ordersApi, tokenStore, ApiError, type Store, type Order } from "@/shared/api/client";
 import { formatPEN, timeAgo } from "@/shared/utils/format";
 import { STATUS_COLOR, STATUS_LABEL } from "@/shared/types";
-
-interface Store {
-  tenantId: string;
-  storeId: string;
-  name: string;
-  address: string;
-  active: boolean;
-}
 
 export function StoresLandingPage() {
   const navigate = useNavigate();
   const [stores, setStores] = useState<Store[]>([]);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const currentStoreId = useAppStore((s) => s.currentStoreId);
   const setCurrentStoreId = useAppStore((s) => s.setCurrentStoreId);
   const currentUser = useAppStore((s) => s.currentUser);
-  const logout = useAppStore((s) => s.logout);
-  const trackedOrders = useAppStore((s) => s.orders);
-  const autoAdvance = useAppStore((s) => s.autoAdvance);
+  const setCurrentUser = useAppStore((s) => s.setCurrentUser);
+  const token = tokenStore.get();
 
   useEffect(() => {
-    // En producción esto llamaría a GET /stores
-    // Por ahora usamos los stores de los pedidos trackeados + los 3 hardcoded
-    const hardcoded: Store[] = [
-      { tenantId: "popeyes", storeId: "store-001", name: "Popeyes Miraflores", address: "Av. Larco 345, Miraflores, Lima", active: true },
-      { tenantId: "popeyes", storeId: "store-002", name: "Popeyes Surco", address: "Av. Caminos del Inca 1234, Surco, Lima", active: true },
-      { tenantId: "popeyes", storeId: "store-003", name: "Popeyes Barranco", address: "Jr. Bolognesi 567, Barranco, Lima", active: true },
-    ];
-    setTimeout(() => {
-      setStores(hardcoded);
-      setLoading(false);
-    }, 200);
-  }, []);
-
-  const recentOrders = useMemo(
-    () =>
-      trackedOrders
-        .filter((o) => currentUser?.role === "CLIENT" ? o.customerId === currentUser.userId : true)
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        .slice(0, 5),
-    [trackedOrders, currentUser],
-  );
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const list = await storesApi.list(token);
+        if (cancelled) return;
+        setStores(list);
+        if (token && currentUser?.role === "CLIENT") {
+          try {
+            const o = await ordersApi.list(token);
+            if (cancelled) return;
+            setRecentOrders(
+              o
+                .filter((x) => x.customerId === currentUser.userId)
+                .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                .slice(0, 5),
+            );
+          } catch {
+            // ignore
+          }
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof ApiError ? err.message : "Error al cargar");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, currentUser?.userId, currentUser?.role]);
 
   const selectStore = (storeId: string) => {
     setCurrentStoreId(storeId);
@@ -73,7 +80,7 @@ export function StoresLandingPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {autoAdvance && (
+              {currentUser && (
                 <span className="chip animate-pulse-slow border-emerald-300 bg-emerald-500/20 text-emerald-200">
                   ● Sincronizando
                 </span>
@@ -87,8 +94,11 @@ export function StoresLandingPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      logout();
-                      clearStore();
+                      tokenStore.clear();
+                      tokenStore.clearUser();
+                      setCurrentUser(null);
+                      setCurrentStoreId(null);
+                      navigate("/");
                     }}
                     className="btn-ghost text-white/80 hover:bg-white/10 hover:text-white"
                   >
@@ -120,7 +130,7 @@ export function StoresLandingPage() {
               <div className="absolute h-60 w-60 rounded-full bg-popeyes-gold/40 blur-2xl" />
               <div className="relative grid h-60 w-60 place-items-center rounded-full bg-gradient-to-br from-popeyes-gold to-popeyes-orange shadow-2xl">
                 <div className="text-center">
-                  <Store className="mx-auto h-16 w-16 text-popeyes-dark" strokeWidth={1.5} />
+                  <StoreIcon className="mx-auto h-16 w-16 text-popeyes-dark" strokeWidth={1.5} />
                   <div className="mt-1 font-display text-sm tracking-widest text-popeyes-dark/80">3 SEDES</div>
                 </div>
               </div>
@@ -150,6 +160,12 @@ export function StoresLandingPage() {
               <div key={i} className="card h-56 animate-pulse" />
             ))}
           </div>
+        ) : error ? (
+          <div className="card p-6 text-center text-red-600">{error}</div>
+        ) : stores.length === 0 ? (
+          <div className="card p-6 text-center text-popeyes-gray">
+            No hay sedes disponibles. Ejecuta <code className="rounded bg-popeyes-cream px-1.5">POST /admin/seed</code> en el backend.
+          </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-3">
             {stores.map((s) => {
@@ -177,7 +193,7 @@ export function StoresLandingPage() {
                   )}
                   <div className="relative h-32 overflow-hidden bg-gradient-to-br from-popeyes-red to-popeyes-dark">
                     <div className="absolute inset-0 flex items-center justify-center opacity-30">
-                      <Store className="h-24 w-24 text-white" strokeWidth={1.2} />
+                      <StoreIcon className="h-24 w-24 text-white" strokeWidth={1.2} />
                     </div>
                     <div className="absolute bottom-3 left-4 font-display text-3xl text-white">
                       {s.name.replace("Popeyes ", "")}
@@ -222,7 +238,7 @@ export function StoresLandingPage() {
                 className="card flex items-center gap-4 p-4 transition hover:shadow-md"
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-popeyes-red/10 text-popeyes-red">
-                  <Store className="h-5 w-5" />
+                  <StoreIcon className="h-5 w-5" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
