@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
-import { Plus, Minus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { Plus, Minus, MapPin } from "lucide-react";
 import { useAppStore } from "@/shared/stores/appStore";
 import type { ProductCategory } from "@/shared/types";
 import { formatPEN } from "@/shared/utils/format";
@@ -15,19 +16,38 @@ const CATEGORIES: { key: ProductCategory | "ALL"; label: string }[] = [
   { key: "POSTRES", label: "Postres" },
 ];
 
+const STORE_NAMES: Record<string, string> = {
+  "store-001": "Popeyes Miraflores",
+  "store-002": "Popeyes Surco",
+  "store-003": "Popeyes Barranco",
+};
+
 export function MenuPage() {
+  const { storeId = "" } = useParams();
   const products = useAppStore((s) => s.products);
   const addToCart = useAppStore((s) => s.addToCart);
   const cart = useAppStore((s) => s.cart);
   const updateCartItem = useAppStore((s) => s.updateCartItem);
+  const setCurrentStoreId = useAppStore((s) => s.setCurrentStoreId);
   const [filter, setFilter] = useState<ProductCategory | "ALL">("ALL");
+
+  // Cuando se carga esta página, fijar la tienda actual en el store
+  useEffect(() => {
+    if (storeId) setCurrentStoreId(storeId);
+  }, [storeId, setCurrentStoreId]);
+
+  // Productos de ESTA tienda
+  const storeProducts = useMemo(
+    () => products.filter((p) => p.storeId === storeId && p.active),
+    [products, storeId],
+  );
 
   const filtered = useMemo(
     () =>
-      products.filter(
-        (p) => p.active && (filter === "ALL" || p.category === filter),
+      storeProducts.filter(
+        (p) => filter === "ALL" || p.category === filter,
       ),
-    [products, filter],
+    [storeProducts, filter],
   );
 
   const cartQty = (productId: string) =>
@@ -35,11 +55,20 @@ export function MenuPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="font-display text-4xl md:text-5xl">Nuestra carta</h1>
-        <p className="text-sm text-popeyes-gray">
-          Elige tus favoritos. El pedido se registrará como <strong>WEB</strong> y entrará al workflow de cocina.
-        </p>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className="mb-1 flex items-center gap-2 text-sm text-popeyes-gray">
+            <MapPin className="h-4 w-4" />
+            <span>{STORE_NAMES[storeId] || storeId}</span>
+          </div>
+          <h1 className="font-display text-4xl md:text-5xl">Nuestra carta</h1>
+          <p className="text-sm text-popeyes-gray">
+            {filtered.length} producto{filtered.length !== 1 ? "s" : ""} disponible{filtered.length !== 1 ? "s" : ""} en esta sede.
+          </p>
+        </div>
+        <Link to="/" className="btn-secondary text-sm">
+          ← Cambiar sede
+        </Link>
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
@@ -59,6 +88,16 @@ export function MenuPage() {
         ))}
       </div>
 
+      {filtered.length === 0 ? (
+        <div className="card p-8 text-center">
+          <p className="text-popeyes-gray">
+            Esta sede aún no tiene productos en el demo. Intenta con otra sede.
+          </p>
+          <Link to="/" className="btn-primary mt-4">
+            Ver otras sedes
+          </Link>
+        </div>
+      ) : (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((p) => {
           const qty = cartQty(p.productId);
@@ -118,10 +157,11 @@ export function MenuPage() {
                   )}
                 </div>
               </div>
-            </article>
-          );
-        })}
-      </div>
+             </article>
+           );
+         })}
+       </div>
+      )}
     </div>
   );
 }

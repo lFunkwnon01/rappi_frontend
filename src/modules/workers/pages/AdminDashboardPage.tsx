@@ -18,21 +18,29 @@ import { formatPEN, timeAgo } from "@/shared/utils/format";
 import { Activity, CheckCircle2, Clock, DollarSign } from "lucide-react";
 
 const STATUS_COLORS_HEX: Record<OrderStatus, string> = {
+  PAYMENT_PENDING: "#F59E0B",
+  PAYMENT_CONFIRMED: "#0EA5E9",
+  PAYMENT_FAILED: "#EF4444",
   ORDER_CREATED: "#94A3B8",
   ORDER_RECEIVED: "#F59E0B",
   COOKED: "#F97316",
   PACKED: "#EAB308",
   DELIVERED: "#3B82F6",
   COMPLETED: "#10B981",
+  CANCELLED: "#9CA3AF",
 };
 
 const ALL_STATUSES: OrderStatus[] = [
+  "PAYMENT_PENDING",
+  "PAYMENT_CONFIRMED",
+  "PAYMENT_FAILED",
   "ORDER_CREATED",
   "ORDER_RECEIVED",
   "COOKED",
   "PACKED",
   "DELIVERED",
   "COMPLETED",
+  "CANCELLED",
 ];
 
 export function AdminDashboardPage() {
@@ -68,7 +76,7 @@ export function AdminDashboardPage() {
   }, [orders]);
 
   const byOrigin = useMemo(() => {
-    const web = orders.filter((o) => o.origin === "WEB").length;
+    const web = orders.filter((o) => o.origin === "WEB_POPEYES").length;
     const rappi = orders.filter((o) => o.origin === "RAPPI").length;
     return [
       { name: "Web", value: web, color: "#E4002B" },

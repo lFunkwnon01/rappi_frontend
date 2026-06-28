@@ -7,14 +7,18 @@ export type Role =
   | "ADMIN";
 
 export type OrderStatus =
+  | "PAYMENT_PENDING"
+  | "PAYMENT_CONFIRMED"
+  | "PAYMENT_FAILED"
   | "ORDER_CREATED"
   | "ORDER_RECEIVED"
   | "COOKED"
   | "PACKED"
   | "DELIVERED"
-  | "COMPLETED";
+  | "COMPLETED"
+  | "CANCELLED";
 
-export type OrderOrigin = "WEB" | "RAPPI";
+export type OrderOrigin = "WEB_POPEYES" | "RAPPI";
 
 export interface User {
   userId: string;
@@ -35,6 +39,7 @@ export interface Store {
 
 export interface Product {
   tenantId: string;
+  storeId: string;
   productId: string;
   name: string;
   description: string;
@@ -142,21 +147,29 @@ export const STEP_LABEL: Record<WorkflowStep, string> = {
 };
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
+  PAYMENT_PENDING: "Esperando pago",
+  PAYMENT_CONFIRMED: "Pago confirmado",
+  PAYMENT_FAILED: "Pago rechazado",
   ORDER_CREATED: "Pedido creado",
   ORDER_RECEIVED: "Pedido recibido",
   COOKED: "Cocinado",
   PACKED: "Empacado",
   DELIVERED: "Entregado",
   COMPLETED: "Completado",
+  CANCELLED: "Cancelado",
 };
 
 export const STATUS_COLOR: Record<OrderStatus, string> = {
+  PAYMENT_PENDING: "bg-amber-100 text-amber-800 border-amber-300",
+  PAYMENT_CONFIRMED: "bg-sky-100 text-sky-800 border-sky-300",
+  PAYMENT_FAILED: "bg-red-100 text-red-800 border-red-300",
   ORDER_CREATED: "bg-slate-100 text-slate-700 border-slate-300",
   ORDER_RECEIVED: "bg-amber-100 text-amber-800 border-amber-300",
   COOKED: "bg-orange-100 text-orange-800 border-orange-300",
   PACKED: "bg-yellow-100 text-yellow-800 border-yellow-300",
   DELIVERED: "bg-blue-100 text-blue-800 border-blue-300",
   COMPLETED: "bg-emerald-100 text-emerald-800 border-emerald-300",
+  CANCELLED: "bg-gray-200 text-gray-700 border-gray-400",
 };
 
 export const ROLE_LABEL: Record<Role, string> = {

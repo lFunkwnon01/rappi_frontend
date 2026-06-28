@@ -1,9 +1,16 @@
-import { Link } from "react-router-dom";
-import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import { Minus, Plus, Trash2, ShoppingBag, MapPin } from "lucide-react";
 import { useAppStore } from "@/shared/stores/appStore";
 import { formatPEN } from "@/shared/utils/format";
 
+const STORE_NAMES: Record<string, string> = {
+  "store-001": "Popeyes Miraflores",
+  "store-002": "Popeyes Surco",
+  "store-003": "Popeyes Barranco",
+};
+
 export function CartPage() {
+  const { storeId = "" } = useParams();
   const cart = useAppStore((s) => s.cart);
   const updateCartItem = useAppStore((s) => s.updateCartItem);
   const removeFromCart = useAppStore((s) => s.removeFromCart);
@@ -21,7 +28,7 @@ export function CartPage() {
         </div>
         <h1 className="mt-4 font-display text-4xl">Tu carrito está vacío</h1>
         <p className="mt-1 text-popeyes-gray">Agrega algo rico de la carta para continuar.</p>
-        <Link to="/menu" className="btn-primary mt-6">
+        <Link to={`/store/${storeId}/menu`} className="btn-primary mt-6">
           Ir a la carta
         </Link>
       </div>
@@ -30,10 +37,21 @@ export function CartPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="font-display text-4xl">Tu pedido</h1>
-      <p className="text-sm text-popeyes-gray">
-        Revisa los productos antes de continuar al pago.
-      </p>
+      <div className="mb-4 flex items-end justify-between">
+        <div>
+          <div className="mb-1 flex items-center gap-2 text-sm text-popeyes-gray">
+            <MapPin className="h-4 w-4" />
+            <span>{STORE_NAMES[storeId] || storeId}</span>
+          </div>
+          <h1 className="font-display text-4xl">Tu pedido</h1>
+          <p className="text-sm text-popeyes-gray">
+            Revisa los productos antes de continuar al pago.
+          </p>
+        </div>
+        <Link to="/" className="text-sm font-semibold text-popeyes-red hover:underline">
+          Cambiar sede
+        </Link>
+      </div>
 
       <div className="mt-6 grid gap-6 md:grid-cols-3">
         <div className="card divide-y md:col-span-2">
@@ -104,7 +122,7 @@ export function CartPage() {
               <dd className="text-popeyes-red">{formatPEN(total)}</dd>
             </div>
           </dl>
-          <Link to="/checkout" className="btn-primary mt-4 w-full">
+          <Link to={`/store/${storeId}/checkout`} className="btn-primary mt-4 w-full">
             Continuar al pago
           </Link>
         </aside>

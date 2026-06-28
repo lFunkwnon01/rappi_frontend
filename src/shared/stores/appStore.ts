@@ -42,11 +42,17 @@ interface AppState {
   currentUser: User | null;
   cart: OrderItem[];
 
+  // Tienda actualmente seleccionada (CLIENT).
+  // Persiste en localStorage gracias a `partialize`.
+  currentStoreId: string | null;
+
   autoAdvance: boolean;
   autoAdvanceTimer: number | null;
 
   login: (userId: string) => User | null;
   logout: () => void;
+
+  setCurrentStoreId: (storeId: string | null) => void;
 
   addToCart: (productId: string, quantity?: number) => void;
   updateCartItem: (productId: string, quantity: number) => void;
@@ -60,6 +66,8 @@ interface AppState {
     paymentMethod: Order["paymentMethod"];
     origin: Order["origin"];
     externalOrderId?: string;
+    storeId?: string;
+    paymentStatus?: Order["status"];
   }) => Order;
 
   advanceOrder: (
@@ -82,6 +90,7 @@ const initialState = {
   events: DEMO_EVENTS,
   currentUser: null,
   cart: [] as OrderItem[],
+  currentStoreId: null,
   autoAdvance: false,
   autoAdvanceTimer: null,
 };
@@ -98,7 +107,9 @@ export const useAppStore = create<AppState>()(
           return user;
         },
 
-        logout: () => set({ currentUser: null }),
+        logout: () => set({ currentUser: null, currentStoreId: null }),
+
+        setCurrentStoreId: (storeId) => set({ currentStoreId: storeId }),
 
         addToCart: (productId, quantity = 1) => {
           const product = get().products.find((p) => p.productId === productId);
@@ -142,8 +153,10 @@ export const useAppStore = create<AppState>()(
           paymentMethod,
           origin,
           externalOrderId,
+          storeId,
+          paymentStatus,
         }) => {
-          const { cart, tenantId } = get();
+          const { cart, tenantId, currentStoreId } = get();
           if (cart.length === 0)
             throw new Error("El carrito está vacío");
 
@@ -154,17 +167,24 @@ export const useAppStore = create<AppState>()(
           );
           const createdAt = new Date().toISOString();
 
+          // Estado inicial: si el pago fue confirmado (Yape/Plin/Tarjeta) → PAYMENT_CONFIRMED
+          // si es efectivo o no se especificó → PAYMENT_PENDING
+          // La transición PAYMENT_CONFIRMED → ORDER_CREATED sucede en el backend real
+          // cuando arranca el Step Function. En el mock, advanceOrder se encarga.
+          const initialStatus: Order["status"] = paymentStatus ?? "PAYMENT_CONFIRMED";
+          const isPaymentConfirmed = initialStatus === "PAYMENT_CONFIRMED";
+
           const order: Order = {
             tenantId,
             orderId,
-            storeId: "store-001",
+            storeId: storeId || currentStoreId || "store-001",
             customerId,
             customerName,
-            origin,
+            origin: origin || "WEB_POPEYES",
             externalOrderId,
             items: [...cart],
             total: Number(total.toFixed(2)),
-            status: "ORDER_CREATED",
+            status: initialStatus,
             createdAt,
             updatedAt: createdAt,
             deliveryAddress,
@@ -172,30 +192,36 @@ export const useAppStore = create<AppState>()(
           };
 
           const firstStep = WORKFLOW_SEQUENCE[0];
-          const task: WorkflowTask = {
-            tenantId,
-            taskId: newId("task"),
-            orderId,
-            storeId: order.storeId,
-            stepName: firstStep,
-            requiredRole: STEP_TO_ROLE[firstStep],
-            status: "PENDING",
-          };
+          // Solo creamos la primera tarea si el pago ya está confirmado.
+          // Si está PENDING, el workflow no inicia hasta que se confirme.
+          const tasks: WorkflowTask[] = isPaymentConfirmed
+            ? [
+                {
+                  tenantId,
+                  taskId: newId("task"),
+                  orderId,
+                  storeId: order.storeId,
+                  stepName: firstStep,
+                  requiredRole: STEP_TO_ROLE[firstStep],
+                  status: "PENDING",
+                },
+              ]
+            : [];
 
           const event: OrderEvent = {
             tenantId,
             eventId: newId("evt"),
             orderId,
             storeId: order.storeId,
-            eventType: "ORDER_CREATED",
-            status: "ORDER_CREATED",
+            eventType: isPaymentConfirmed ? "PAYMENT_CONFIRMED" : "PAYMENT_PENDING",
+            status: initialStatus,
             createdAt,
-            metadata: { origin, total: order.total },
+            metadata: { origin: order.origin, total: order.total },
           };
 
           set({
             orders: [order, ...get().orders],
-            tasks: [task, ...get().tasks],
+            tasks: [...tasks, ...get().tasks],
             events: [event, ...get().events],
             cart: [],
           });
@@ -330,6 +356,7 @@ export const useAppStore = create<AppState>()(
           events: state.events,
           currentUser: state.currentUser,
           cart: state.cart,
+          currentStoreId: state.currentStoreId,
         }),
       },
     ),

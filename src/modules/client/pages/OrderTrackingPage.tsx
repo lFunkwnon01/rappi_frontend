@@ -23,12 +23,16 @@ import {
 import { formatDateTime, formatPEN, timeAgo } from "@/shared/utils/format";
 
 const STATUS_TO_STEP_INDEX: Record<OrderStatus, number> = {
-  ORDER_CREATED: -1,
+  PAYMENT_PENDING: -2,        // antes del workflow
+  PAYMENT_CONFIRMED: -1,      // pago OK, workflow por iniciar
+  PAYMENT_FAILED: -2,         // falló el pago
+  ORDER_CREATED: -1,          // paso inicial del workflow
   ORDER_RECEIVED: 0,
   COOKED: 1,
   PACKED: 2,
   DELIVERED: 3,
   COMPLETED: 4,
+  CANCELLED: -3,              // cancelado (no avanza)
 };
 
 export function OrderTrackingPage() {

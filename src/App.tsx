@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAppStore } from "@/shared/stores/appStore";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 import { ClientNavBar, ClientFooter } from "@/modules/client/components/ClientNavBar";
-import { HomePage } from "@/modules/client/pages/HomePage";
+import { StoresLandingPage } from "@/modules/client/pages/HomePage";
 import { MenuPage } from "@/modules/client/pages/MenuPage";
 import { CartPage } from "@/modules/client/pages/CartPage";
 import { CheckoutPage } from "@/modules/client/pages/CheckoutPage";
@@ -44,12 +44,14 @@ export default function App() {
         path="/"
         element={
           <ClientLayout>
-            <HomePage />
+            <StoresLandingPage />
           </ClientLayout>
         }
       />
+
+      {/* Rutas por tienda: /store/:storeId/* */}
       <Route
-        path="/menu"
+        path="/store/:storeId/menu"
         element={
           <ClientLayout>
             <MenuPage />
@@ -57,7 +59,7 @@ export default function App() {
         }
       />
       <Route
-        path="/cart"
+        path="/store/:storeId/cart"
         element={
           <ClientLayout>
             <CartPage />
@@ -65,7 +67,7 @@ export default function App() {
         }
       />
       <Route
-        path="/checkout"
+        path="/store/:storeId/checkout"
         element={
           <ClientLayout>
             <ProtectedRoute allow={["CLIENT", "ADMIN"]}>
@@ -75,13 +77,15 @@ export default function App() {
         }
       />
       <Route
-        path="/orders"
+        path="/store/:storeId/orders"
         element={
           <ClientLayout>
             <MyOrdersPage />
           </ClientLayout>
         }
       />
+
+      {/* Tracking de un pedido específico (no depende de tienda) */}
       <Route
         path="/orders/:orderId"
         element={
