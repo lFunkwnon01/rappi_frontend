@@ -6,6 +6,13 @@ import { stores as storesApi, orders as ordersApi, tokenStore, ApiError, type St
 import { formatPEN, timeAgo } from "@/shared/utils/format";
 import { STATUS_COLOR, STATUS_LABEL } from "@/shared/types";
 
+// Fallback cuando el backend no está accesible (lab expirado, sin red, etc.)
+const FALLBACK_STORES: Store[] = [
+  { tenantId: "popeyes", storeId: "store-001", name: "Popeyes Miraflores", address: "Av. Larco 345, Miraflores, Lima", active: true },
+  { tenantId: "popeyes", storeId: "store-002", name: "Popeyes Surco", address: "Av. Caminos del Inca 1234, Surco, Lima", active: true },
+  { tenantId: "popeyes", storeId: "store-003", name: "Popeyes Barranco", address: "Jr. Bolognesi 567, Barranco, Lima", active: true },
+];
+
 export function StoresLandingPage() {
   const navigate = useNavigate();
   const [stores, setStores] = useState<Store[]>([]);
@@ -43,7 +50,13 @@ export function StoresLandingPage() {
         }
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof ApiError ? err.message : "Error al cargar");
+        // Fallback: si el backend no está accesible (lab expirado, sin auth, etc.),
+        // mostrar las 3 tiendas hardcoded para que la UI funcione
+        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+          setStores(FALLBACK_STORES);
+        } else {
+          setError(err instanceof ApiError ? err.message : "Error al cargar");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

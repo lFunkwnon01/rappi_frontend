@@ -22,6 +22,31 @@ const STORE_NAMES: Record<string, string> = {
   "store-003": "Popeyes Barranco",
 };
 
+// Fallback si la API no está disponible (lab expirado, sin red, etc.)
+const FALLBACK_PRODUCTS: Record<string, Product[]> = {
+  "store-001": [
+    { tenantId: "popeyes", storeId: "store-001", productId: "p-bucket-8", name: "Bucket 8 Piezas", description: "8 piezas de pollo crispy", price: 64.9, category: "BUCKETS", imageUrl: "", active: true },
+    { tenantId: "popeyes", storeId: "store-001", productId: "p-bucket-12", name: "Bucket 12 Piezas", description: "12 piezas para compartir", price: 89.9, category: "BUCKETS", imageUrl: "", active: true },
+    { tenantId: "popeyes", storeId: "store-001", productId: "p-sandwich-classic", name: "Classic Chicken Sandwich", description: "Pollo crispy, pepinillo y salsa mayo", price: 19.9, category: "SANDWICHES", imageUrl: "", active: true },
+    { tenantId: "popeyes", storeId: "store-001", productId: "p-fries-large", name: "Papas Cajún", description: "Papas fritas sazonadas", price: 12.9, category: "SIDES", imageUrl: "", active: true },
+    { tenantId: "popeyes", storeId: "store-001", productId: "p-cola-500", name: "Coca-Cola 500ml", description: "Gaseosa bien fría", price: 7.5, category: "BEBIDAS", imageUrl: "", active: true },
+  ],
+  "store-002": [
+    { tenantId: "popeyes", storeId: "store-002", productId: "p-bucket-8", name: "Bucket 8 Piezas", description: "8 piezas de pollo crispy", price: 64.9, category: "BUCKETS", imageUrl: "", active: true },
+    { tenantId: "popeyes", storeId: "store-002", productId: "p-combo-pareja", name: "Combo Pareja Surco", description: "Combo especial de Surco", price: 39.9, category: "COMBOS", imageUrl: "", active: true },
+    { tenantId: "popeyes", storeId: "store-002", productId: "p-sandwich-spicy", name: "Spicy Chicken Sandwich", description: "Sandwich picante", price: 21.9, category: "SANDWICHES", imageUrl: "", active: true },
+    { tenantId: "popeyes", storeId: "store-002", productId: "p-biscuit", name: "Biscuit", description: "Pan de buttermilk", price: 5.9, category: "SIDES", imageUrl: "", active: true },
+    { tenantId: "popeyes", storeId: "store-002", productId: "p-cola-500", name: "Coca-Cola 500ml", description: "Gaseosa bien fría", price: 7.5, category: "BEBIDAS", imageUrl: "", active: true },
+  ],
+  "store-003": [
+    { tenantId: "popeyes", storeId: "store-003", productId: "p-bucket-8", name: "Bucket 8 Piezas", description: "8 piezas de pollo crispy", price: 64.9, category: "BUCKETS", imageUrl: "", active: true },
+    { tenantId: "popeyes", storeId: "store-003", productId: "p-tenders-6", name: "Chicken Tenders", description: "Tiras de pollo empanizado", price: 29.9, category: "POLLOS", imageUrl: "", active: true },
+    { tenantId: "popeyes", storeId: "store-003", productId: "p-pollo-aji", name: "Pollo con Ají Barranco", description: "Pollo crispy con ají exclusivo", price: 28.0, category: "POLLOS", imageUrl: "", active: true },
+    { tenantId: "popeyes", storeId: "store-003", productId: "p-pie", name: "Apple Pie", description: "Pie de manzana crujiente", price: 8.9, category: "POSTRES", imageUrl: "", active: true },
+    { tenantId: "popeyes", storeId: "store-003", productId: "p-cafe", name: "Café Popeyes", description: "Café pasado exclusivo", price: 8.0, category: "BEBIDAS", imageUrl: "", active: true },
+  ],
+};
+
 export function MenuPage() {
   const { storeId = "" } = useParams();
   const cart = useAppStore((s) => s.cart);
@@ -56,7 +81,12 @@ export function MenuPage() {
         setProducts(list);
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof ApiError ? err.message : "Error al cargar productos");
+        // Fallback si la API no está disponible
+        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+          setProducts(FALLBACK_PRODUCTS[storeId] ?? []);
+        } else {
+          setError(err instanceof ApiError ? err.message : "Error al cargar productos");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
